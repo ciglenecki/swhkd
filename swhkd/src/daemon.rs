@@ -448,6 +448,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
                 match event.event_type() {
                     EventType::Add => {
+                        // udev "input" events include non-evdev nodes like /dev/input/mouse*.
+                        // Only event nodes are valid for evdev::Device::open.
+                        let is_event_node = Path::new(node)
+                            .file_name()
+                            .and_then(|name| name.to_str())
+                            .is_some_and(|name| name.starts_with("event"));
+                        if !is_event_node {
+                            log::trace!("Ignoring non-evdev input node '{}'", node);
+                            continue;
+                        }
+
                         let mut device = match Device::open(node) {
                             Err(e) => {
                                 log::error!("Could not open evdev device at {}: {}", node, e);
